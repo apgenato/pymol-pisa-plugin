@@ -15,12 +15,12 @@ This script is useful for post-docking analysis in molecular modeling, enabling 
 - **Aromatic and Cation-π Interactions:** Analyzed based on specific atoms and distances.
 - **Visualization:** Automatically displays interacting residues and draws bonds between them in PyMOL.
 
- Usage
+## Usage
 
 1. Save the `find_interactions_PyMol_run.py` script in the desired directory.
 2. Open [PyMOL](https://pymol.org/2/)  and load your receptor-ligand complex structure.
 
-### Important: Ensuring `rec` and `lig` are Separate Objects
+ Important: Ensuring `rec` and `lig` are Separate Objects
 
 - **Separate Objects Requirement:** The receptor (`rec`) and ligand (`lig`) must be loaded as separate objects in PyMOL. This is necessary for the script to correctly identify and analyze the interactions between them.
 
