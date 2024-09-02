@@ -38,6 +38,7 @@ The analysis results are saved in a text file named `interactions_list.txt`, whi
 
 Example file content:
 
+```
 HYDROPHOBIC INTERACTIONS:
 A/LEU`387/CD1 -- A/DST`965/C12 : 3.88 Å
 A/LEU`387/CD1 -- A/DST`965/C13 : 3.79 Å
@@ -57,4 +58,4 @@ A/LEU`387/CD1 -- A/DST`965/F2 : 3.15 Å
 A/LEU`387/CD1 -- A/DST`965/H12 : 3.66 Å
 A/LEU`387/CD2 -- A/DST`965/F2 : 3.20 Å
 ...
-
+```
