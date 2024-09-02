@@ -18,13 +18,13 @@ This script is useful for post-docking analysis in molecular modeling, enabling 
  Usage
 
 1. Save the `find_interactions_PyMol_run.py` script in the desired directory.
-2. Open PyMOL and load your receptor-ligand complex structure.
+2. Open [PyMOL](https://pymol.org/2/)  and load your receptor-ligand complex structure.
 
 ### Important: Ensuring `rec` and `lig` are Separate Objects
 
 - **Separate Objects Requirement:** The receptor (`rec`) and ligand (`lig`) must be loaded as separate objects in PyMOL. This is necessary for the script to correctly identify and analyze the interactions between them.
 
-- **Alternatively:** You can change the object names in the script to match your current object names. If you are working with ClusPro models, there is no need to make any changes to the script.
+- **Alternatively:** You can change the object names in the script to match your current object names. If you are working with [ClusPro](https://cluspro.bu.edu/) models, there is no need to make any changes to the script.
 
 3. Run the script in the PyMOL command line:
    ```python
