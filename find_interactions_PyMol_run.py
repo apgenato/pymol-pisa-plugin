@@ -2,7 +2,7 @@ import os
 from pymol import cmd
 
 # Path to the directory where the file will be saved
-output_directory = r"C:\Users\anast\Desktop\USP8\usp8_dock\P720Q"
+output_directory = r"C:\path\to\output"
 output_filename = "interactions_list.txt"
 output_path = os.path.join(output_directory, output_filename)
 
