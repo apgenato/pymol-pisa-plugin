@@ -39,7 +39,7 @@ def is_salt_bridge(atom1, atom2, dist):
     )
 
 def is_vdw(atom1, atom2, dist):
-    # ВVan der Waals interactions are defined if they are neither hydrophobic nor hydrogen bonds
+    # Van der Waals interactions are defined if they are neither hydrophobic nor hydrogen bonds
     return 1.6 < dist <= 4.0 and not (is_hbond(atom1, atom2, dist) or is_hydrophobic(atom1, atom2, dist))
 
 def is_aromatic(atom1, atom2, dist):
