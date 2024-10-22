@@ -8,12 +8,12 @@ This script is useful for post-docking analysis in molecular modeling, enabling 
 
 ## Features
 
-- **Hydrophobic Interactions:** Identified by the presence of carbon and sulfur atoms within a 4 Å distance.
-- **Hydrogen Bonds:** Consider donors and acceptors of hydrogen bonds (N, O, F) within a 3.5 Å distance.
-- **Salt Bridges:** Interactions between positively and negatively charged atoms within a 4 Å distance.
-- **Van der Waals Interactions:** Determined based on distance (1.6-4.0 Å) if not classified as hydrophobic or hydrogen bonds.
-- **Aromatic and Cation-π Interactions:** Analyzed based on specific atoms and distances.
-- **Visualization:** Automatically displays interacting residues and draws bonds between them in PyMOL.
+- **Hydrophobic Interactions:** Between nonpolar atoms, like carbon and sulfur, within 4 Å.
+- **Hydrogen Bonds:** Between donors and acceptors (N, O, F) within 3.5 Å, with an angle check to ensure the donor-hydrogen-acceptor angle is over 120°.
+- **Salt Bridges:** Between positively and negatively charged atoms within 4 Å.
+- **Van der Waals Interactions:** Within a distance of 1.6-4.0 Å, only if not classified as hydrophobic or hydrogen bonds.
+- **Aromatic and Cation-π Interactions:** Based on specific aromatic or charged atoms within set distances.
+- **Visualization:** Automatically shows interacting residues and bonds in PyMOL, with color coding for clarity.
 
 ## Usage
 
