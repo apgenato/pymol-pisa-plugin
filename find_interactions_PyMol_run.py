@@ -19,15 +19,15 @@ distance_cutoff = 4.0
 
 # Functions to determine all possible types of interactions
 def is_hydrophobic(atom1, atom2, dist):
-    # Гидрофобные взаимодействия между углеродами и серой на расстоянии до 4 Å
+    # Hydrophobic interactions between carbons and sulfur at distances up to 4 Å
     hydrophobic_atoms = {"C", "S"}
     return dist <= 4.0 and atom1[0] in hydrophobic_atoms and atom2[0] in hydrophobic_atoms
 
 def is_hbond(atom1, atom2, dist):
-    # Водородные связи учитывают расстояние до 3.5 Å и наличие подходящих доноров/акцепторов
+    # Hydrogen bonds consider distances up to 3.5 Å and the presence of suitable donors/acceptors.
     if dist > 3.5:
         return False
-    hbond_donors = {"N", "O", "F"}  # Водородные доноры и акцепторы
+    hbond_donors = {"N", "O", "F"} 
     return (atom1 in hbond_donors and atom2 in hbond_donors)
 
 def is_salt_bridge(atom1, atom2, dist):
@@ -39,7 +39,7 @@ def is_salt_bridge(atom1, atom2, dist):
     )
 
 def is_vdw(atom1, atom2, dist):
-    # Ван-дер-ваальсовы взаимодействия определяются, если это не гидрофобное и не водородное взаимодействие
+    # ВVan der Waals interactions are defined if they are neither hydrophobic nor hydrogen bonds
     return 1.6 < dist <= 4.0 and not (is_hbond(atom1, atom2, dist) or is_hydrophobic(atom1, atom2, dist))
 
 def is_aromatic(atom1, atom2, dist):
