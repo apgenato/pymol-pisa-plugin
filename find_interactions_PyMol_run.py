@@ -6,6 +6,7 @@ output_directory = r"C:\path\to\output"
 output_filename = "interactions_list.txt"
 output_path = os.path.join(output_directory, output_filename)
 
+# Names of receptor and ligand objects
 rec_file = "rec"
 
 lig_file = ""
@@ -14,23 +15,24 @@ for obj in cmd.get_object_list():
         lig_file = obj
         break
 
-
+# Maximum distance cutoff for interaction analysis
 distance_cutoff = 4.0
 
-# Functions to determine all possible types of interactions
+# Functions to determine various types of interactions
 def is_hydrophobic(atom1, atom2, dist):
     # Hydrophobic interactions between carbons and sulfur at distances up to 4 Å
     hydrophobic_atoms = {"C", "S"}
     return dist <= 4.0 and atom1[0] in hydrophobic_atoms and atom2[0] in hydrophobic_atoms
 
 def is_hbond(atom1, atom2, dist):
-    # Hydrogen bonds consider distances up to 3.5 Å and the presence of suitable donors/acceptors.
+    # Hydrogen bonds consider distances up to 3.5 Å and the presence of suitable donors/acceptors
     if dist > 3.5:
         return False
-    hbond_donors = {"N", "O", "F"} 
-    return (atom1 in hbond_donors and atom2 in hbond_donors)
+    hbond_donors_acceptors = {"N", "O", "F"}
+    return (atom1[0] in hbond_donors_acceptors and atom2[0] in hbond_donors_acceptors)
 
 def is_salt_bridge(atom1, atom2, dist):
+    # Salt bridges between positively and negatively charged groups
     positive_atoms = {"NZ", "NH1", "NH2", "NE", "ND1", "ND2"}
     negative_atoms = {"OD1", "OD2", "OE1", "OE2"}
     return dist <= 4.0 and (
@@ -39,14 +41,16 @@ def is_salt_bridge(atom1, atom2, dist):
     )
 
 def is_vdw(atom1, atom2, dist):
-    # Van der Waals interactions are defined if they are neither hydrophobic nor hydrogen bonds
+    # Van der Waals interactions, if they are neither hydrophobic nor hydrogen bonds
     return 1.6 < dist <= 4.0 and not (is_hbond(atom1, atom2, dist) or is_hydrophobic(atom1, atom2, dist))
 
 def is_aromatic(atom1, atom2, dist):
+    # Aromatic interactions
     aromatic_atoms = {"CG", "CD1", "CD2", "CE1", "CE2", "CZ", "CH"}
     return dist <= 5.0 and atom1 in aromatic_atoms and atom2 in aromatic_atoms
 
 def is_cation_pi(atom1, atom2, dist):
+    # Cation-π interactions
     cation_atoms = {"NZ", "NH1", "NH2", "NE"}
     pi_atoms = {"CG", "CD1", "CD2", "CE1", "CE2", "CZ", "CH"}
     return dist <= 6.0 and (
@@ -55,6 +59,7 @@ def is_cation_pi(atom1, atom2, dist):
     )
 
 def is_covalent(dist):
+    # Covalent bonds, if the distance is less than 1.6 Å
     return dist < 1.6
 
 # Collect all interactions
@@ -69,14 +74,14 @@ cmd.feedback("enable", "cmd", "results")
 
 print(f"Running interaction analysis between {rec_file} and {lig_file}...")
 
-# Iterate over all atoms in lig and rec to find interactions
+# Select interacting atoms from the receptor and ligand
 cmd.select("close_contacts", f"({rec_file} within {distance_cutoff} of {lig_file}) or ({lig_file} within {distance_cutoff} of {rec_file})")
 cmd.select("interacting_residues", "byres close_contacts")
 
 rec_atoms = cmd.get_model(f"{rec_file} and close_contacts").atom
 lig_atoms = cmd.get_model(f"{lig_file} and close_contacts").atom
 
-# Collect all interactions in one pass
+# Determine interactions
 for rec_atom in rec_atoms:
     rec_name = rec_atom.name
     for lig_atom in lig_atoms:
@@ -101,7 +106,7 @@ for rec_atom in rec_atoms:
             else:
                 interactions["other"].append((rec_atom, lig_atom, dist))
 
-# Output results
+# Write results to a file
 with open(output_path, "w") as f:
     for interaction_type, pairs in interactions.items():
         f.write(f"{interaction_type.upper()} INTERACTIONS:\n")
@@ -111,7 +116,7 @@ with open(output_path, "w") as f:
 
 print(f"Results saved to file: {output_path}")
 
-# Visualization
+# Visualize interactions
 cmd.show("sticks", "interacting_residues")
 
 for interaction_type, color in zip(["hbond", "salt_bridge", "covalent", "hydrophobic"],
