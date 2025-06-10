@@ -282,7 +282,7 @@ class PisaPluginGUI(QtWidgets.QWidget):
     def update_filename(self):
         rec = self.rec_combo.currentText()
         lig = self.lig_combo.currentText()
-        self.outname_edit.setText(f"{rec}_{lig}_interactions.txt")
+        self.outname_edit.setText(f"{rec}_{lig}_interactions.csv")
 
     def browse_dir(self):
         d = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Output Directory", self.outdir_edit.text())
