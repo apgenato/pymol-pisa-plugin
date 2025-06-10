@@ -32,9 +32,11 @@ def calculate_angle(atom1, atom2, atom3):
     if magnitude1 == 0 or magnitude2 == 0:
         return 0
     cosine_angle = dot_product / (magnitude1 * magnitude2)
+    # Clamp value to avoid math domain error
+    cosine_angle = max(-1.0, min(1.0, cosine_angle))
     return math.degrees(math.acos(cosine_angle))
 
-def find_hydrogen_near(atom, max_dist=1.2):
+def find_nearest_hydrogen(atom):
     """
     Finds a hydrogen atom near the specified atom within a given distance.
 
@@ -45,15 +47,21 @@ def find_hydrogen_near(atom, max_dist=1.2):
     Returns:
         object: The nearest hydrogen atom within the specified distance, or None if no hydrogen is found.
     """
+    # Build selection string for the parent object and residue
+    obj = atom.model
+    sele = f'{obj} and chain {atom.chain} and resi {atom.resi} and elem H'
+    hydrogens = cmd.get_model(sele).atom
     closest_neighbor = None
     closest_distance = float('inf')
-    for neighbor in cmd.get_model(f"({atom.segi}//{atom.chain}/{atom.resi}) and name H*").atom:
-        dist = cmd.get_distance(f"{atom.segi}//{atom.chain}/{atom.resi}/{atom.name}",
-                                f"{neighbor.segi}//{neighbor.chain}/{neighbor.resi}/{neighbor.name}")
-        if dist < max_dist:
-            if closest_neighbor is None or dist < closest_distance:
-                closest_neighbor = neighbor
-                closest_distance = dist
+    for neighbor in hydrogens:
+        # Skip if it's the same atom
+        if neighbor.name == atom.name:
+            continue
+        # Calculate distance using coordinates directly
+        dist = math.sqrt(sum((a - b) ** 2 for a, b in zip(atom.coord, neighbor.coord)))
+        if dist < 1.2 and dist < closest_distance:
+            closest_neighbor = neighbor
+            closest_distance = dist
     return closest_neighbor
 
 def is_hydrophobic(atom1, atom2, dist):
@@ -61,25 +69,21 @@ def is_hydrophobic(atom1, atom2, dist):
     return dist <= 4.0 and atom1.name[0] in hydrophobic_atoms and atom2.name[0] in hydrophobic_atoms
 
 def is_hbond(atom1, atom2, dist):
-    if dist > 3.5:
-        return False
     hbond_donors_acceptors = {"N", "O", "F"}
-    if atom1.name[0] in hbond_donors_acceptors and atom2.name[0] in hbond_donors_acceptors:
-        donor_hydrogen1 = find_hydrogen_near(atom1)
+    if dist < 3.5 and atom1.name[0] in hbond_donors_acceptors and atom2.name[0] in hbond_donors_acceptors:
+        donor_hydrogen1 = find_nearest_hydrogen(atom1)
+        donor_hydrogen2 = find_nearest_hydrogen(atom2)
         if donor_hydrogen1:
             angle1 = calculate_angle(atom1, donor_hydrogen1, atom2)
-            print(f"Checking atom1 as donor: {atom1.name}, angle: {angle1}")
             if angle1 > 120:
-                print(f"Hydrogen bond found (atom1 donor): {atom1.name} - {atom2.name}, dist: {dist}, angle: {angle1}")
                 return True
-        donor_hydrogen2 = find_hydrogen_near(atom2)
+            return False
         if donor_hydrogen2:
             angle2 = calculate_angle(atom2, donor_hydrogen2, atom1)
-            print(f"Checking atom2 as donor: {atom2.name}, angle: {angle2}")
             if angle2 > 120:
-                print(f"Hydrogen bond found (atom2 donor): {atom2.name} - {atom1.name}, dist: {dist}, angle: {angle2}")
                 return True
-    return False
+            return False
+        return False
 
 def is_salt_bridge(atom1, atom2, dist):
     positive_atoms = {"NZ", "NH1", "NH2", "NE", "ND1", "ND2"}
@@ -108,6 +112,14 @@ def is_covalent(dist):
     return dist < 1.6
 
 def run_analysis(rec_file, lig_file, output_path, distance_cutoff=4.0):
+    # Check for hydrogens in receptor and ligand, add if missing
+    rec_has_h = cmd.count_atoms(f"{rec_file} and elem H") > 0
+    lig_has_h = cmd.count_atoms(f"{lig_file} and elem H") > 0
+    if not rec_has_h:
+        cmd.h_add(rec_file)
+    if not lig_has_h:
+        cmd.h_add(lig_file)
+
     interactions = {
         "hydrophobic": [], "hbond": [], "salt_bridge": [], "covalent": [],
         "vdw": [], "aromatic": [], "cation_pi": [], "other": []
