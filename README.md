@@ -31,8 +31,6 @@ This script is useful for post-docking analysis in molecular modeling, enabling 
 ## Output
 The analysis results are saved in a text file named `rec_lig_interactions_list.txt`, which contains information about the types of interactions, the atoms involved, and the distances between them. Each interaction is classified by type, and the atoms are represented in PyMOL format (chain/residue/atom).
 
-![Interaction Analysis Result](examples/110217.png)
-
 Example file content:
 
 ```

@@ -1,5 +1,6 @@
 import os
 import math
+import csv
 from pymol import cmd, Qt
 from pymol.Qt import QtWidgets
 
@@ -191,12 +192,22 @@ def run_analysis(rec_file, lig_file, output_path, distance_cutoff=4.0, ensure_hy
                     else:
                         interactions["other"].append((rec_atom, lig_atom, dist))
 
-    with open(output_path, "w") as f:
+    with open(output_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "interaction_type",
+            "atom1_chain", "atom1_resn", "atom1_resi", "atom1_name", "atom1_element","--",
+            "atom2_chain", "atom2_resn", "atom2_resi", "atom2_name", "atom2_element",
+            "distance (Å)"
+        ])
         for interaction_type, pairs in interactions.items():
-            f.write(f"{interaction_type.upper()} INTERACTIONS:\n")
             for atom1, atom2, dist in pairs:
-                f.write(f"{atom1.chain}/{atom1.resn}`{atom1.resi}/{atom1.name} -- {atom2.chain}/{atom2.resn}`{atom2.resi}/{atom2.name} : {dist:.2f} Å\n")
-            f.write("\n")
+                writer.writerow([
+                    interaction_type,
+                    atom1.chain, atom1.resn, atom1.resi, atom1.name, atom1.symbol,"--",
+                    atom2.chain, atom2.resn, atom2.resi, atom2.name, atom2.symbol,
+                    f"{dist:.2f}"
+                ])
 
     cmd.show("sticks", "interacting_residues")
     for interaction_type, color in zip(["hbond", "salt_bridge", "covalent", "hydrophobic"],
@@ -245,7 +256,7 @@ class PisaPluginGUI(QtWidgets.QWidget):
 
         # Output filename
         layout.addWidget(QtWidgets.QLabel("Output filename:"), 3, 0)
-        default_filename = f"{self.rec_combo.currentText()}_{self.lig_combo.currentText()}_interactions.txt"
+        default_filename = f"{self.rec_combo.currentText()}_{self.lig_combo.currentText()}_interactions.csv"
         self.outname_edit = QtWidgets.QLineEdit(default_filename)
         self.rec_combo.currentIndexChanged.connect(self.update_filename)
         self.lig_combo.currentIndexChanged.connect(self.update_filename)
