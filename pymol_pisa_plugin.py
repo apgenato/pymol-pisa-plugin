@@ -111,14 +111,15 @@ def is_cation_pi(atom1, atom2, dist):
 def is_covalent(dist):
     return dist < 1.6
 
-def run_analysis(rec_file, lig_file, output_path, distance_cutoff=4.0):
-    # Check for hydrogens in receptor and ligand, add if missing
-    rec_has_h = cmd.count_atoms(f"{rec_file} and elem H") > 0
-    lig_has_h = cmd.count_atoms(f"{lig_file} and elem H") > 0
-    if not rec_has_h:
-        cmd.h_add(rec_file)
-    if not lig_has_h:
-        cmd.h_add(lig_file)
+def run_analysis(rec_file, lig_file, output_path, distance_cutoff=4.0, ensure_hydrogens=True):
+    # Optionally check for hydrogens in receptor and ligand, add if missing
+    if ensure_hydrogens:
+        rec_has_h = cmd.count_atoms(f"{rec_file} and elem H") > 0
+        lig_has_h = cmd.count_atoms(f"{lig_file} and elem H") > 0
+        if not rec_has_h:
+            cmd.h_add(rec_file)
+        if not lig_has_h:
+            cmd.h_add(lig_file)
 
     interactions = {
         "hydrophobic": [], "hbond": [], "salt_bridge": [], "covalent": [],
@@ -217,10 +218,15 @@ class PisaPluginGUI(QtWidgets.QWidget):
         self.lig_combo.currentIndexChanged.connect(self.update_filename)
         layout.addWidget(self.outname_edit, 3, 1)
 
+        # Add hydrogens checkbox
+        self.hydrogen_checkbox = QtWidgets.QCheckBox("Ensure hydrogens are present (add if missing)")
+        self.hydrogen_checkbox.setChecked(True)
+        layout.addWidget(self.hydrogen_checkbox, 4, 0, 1, 2)
+
         # Run button
         self.run_btn = QtWidgets.QPushButton("Run Analysis")
         self.run_btn.clicked.connect(self.run_analysis_gui)
-        layout.addWidget(self.run_btn, 4, 0, 1, 3)
+        layout.addWidget(self.run_btn, 5, 0, 1, 3)
 
         self.setLayout(layout)
 
@@ -239,6 +245,7 @@ class PisaPluginGUI(QtWidgets.QWidget):
         lig = self.lig_combo.currentText()
         outdir = self.outdir_edit.text()
         outname = self.outname_edit.text()
+        ensure_hydrogens = self.hydrogen_checkbox.isChecked()
         if not rec or not lig:
             QtWidgets.QMessageBox.warning(self, "Error", "Please select both receptor and ligand objects.")
             return
@@ -247,7 +254,7 @@ class PisaPluginGUI(QtWidgets.QWidget):
             return
         output_path = os.path.join(outdir, outname)
         try:
-            run_analysis(rec, lig, output_path)
+            run_analysis(rec, lig, output_path, ensure_hydrogens=ensure_hydrogens)
             QtWidgets.QMessageBox.information(self, "Done", f"Results saved to {output_path}")
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", str(e))
