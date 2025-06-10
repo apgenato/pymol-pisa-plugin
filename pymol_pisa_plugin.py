@@ -136,27 +136,60 @@ def run_analysis(rec_file, lig_file, output_path, distance_cutoff=4.0, ensure_hy
     rec_atoms = cmd.get_model(f"{rec_file} and close_contacts").atom
     lig_atoms = cmd.get_model(f"{lig_file} and close_contacts").atom
 
-    for rec_atom in rec_atoms:
-        for lig_atom in lig_atoms:
-            dist = cmd.get_distance(f"{rec_file}//{rec_atom.chain}/{rec_atom.resi}/{rec_atom.name}",
-                                    f"{lig_file}//{lig_atom.chain}/{lig_atom.resi}/{lig_atom.name}")
-            if dist <= distance_cutoff:
-                if is_hbond(rec_atom, lig_atom, dist):
-                    interactions["hbond"].append((rec_atom, lig_atom, dist))
-                elif is_salt_bridge(rec_atom, lig_atom, dist):
-                    interactions["salt_bridge"].append((rec_atom, lig_atom, dist))
-                elif is_hydrophobic(rec_atom, lig_atom, dist):
-                    interactions["hydrophobic"].append((rec_atom, lig_atom, dist))
-                elif is_aromatic(rec_atom, lig_atom, dist):
-                    interactions["aromatic"].append((rec_atom, lig_atom, dist))
-                elif is_cation_pi(rec_atom, lig_atom, dist):
-                    interactions["cation_pi"].append((rec_atom, lig_atom, dist))
-                elif is_covalent(dist):
-                    interactions["covalent"].append((rec_atom, lig_atom, dist))
-                elif is_vdw(rec_atom, lig_atom, dist):
-                    interactions["vdw"].append((rec_atom, lig_atom, dist))
-                else:
-                    interactions["other"].append((rec_atom, lig_atom, dist))
+    if rec_file == lig_file:
+        for i, rec_atom in enumerate(rec_atoms):
+            for j, lig_atom in enumerate(lig_atoms):
+                if j <= i:
+                    continue  # skip self and duplicate pairs
+                dist = cmd.get_distance(
+                    f"{rec_file}//{rec_atom.chain}/{rec_atom.resi}/{rec_atom.name}",
+                    f"{lig_file}//{lig_atom.chain}/{lig_atom.resi}/{lig_atom.name}"
+                )
+                if dist <= distance_cutoff:
+                    if rec_file == lig_file and rec_atom.index == lig_atom.index:
+                        continue  # skip self-self
+                    if is_hbond(rec_atom, lig_atom, dist):
+                        interactions["hbond"].append((rec_atom, lig_atom, dist))
+                    elif is_salt_bridge(rec_atom, lig_atom, dist):
+                        interactions["salt_bridge"].append((rec_atom, lig_atom, dist))
+                    elif is_hydrophobic(rec_atom, lig_atom, dist):
+                        interactions["hydrophobic"].append((rec_atom, lig_atom, dist))
+                    elif is_aromatic(rec_atom, lig_atom, dist):
+                        interactions["aromatic"].append((rec_atom, lig_atom, dist))
+                    elif is_cation_pi(rec_atom, lig_atom, dist):
+                        interactions["cation_pi"].append((rec_atom, lig_atom, dist))
+                    elif is_covalent(dist):
+                        interactions["covalent"].append((rec_atom, lig_atom, dist))
+                    elif is_vdw(rec_atom, lig_atom, dist):
+                        interactions["vdw"].append((rec_atom, lig_atom, dist))
+                    else:
+                        interactions["other"].append((rec_atom, lig_atom, dist))
+    else:
+        for rec_atom in rec_atoms:
+            for lig_atom in lig_atoms:
+                dist = cmd.get_distance(
+                    f"{rec_file}//{rec_atom.chain}/{rec_atom.resi}/{rec_atom.name}",
+                    f"{lig_file}//{lig_atom.chain}/{lig_atom.resi}/{lig_atom.name}"
+                )
+                if dist <= distance_cutoff:
+                    if rec_file == lig_file and rec_atom.index == lig_atom.index:
+                        continue  # skip self-self
+                    if is_hbond(rec_atom, lig_atom, dist):
+                        interactions["hbond"].append((rec_atom, lig_atom, dist))
+                    elif is_salt_bridge(rec_atom, lig_atom, dist):
+                        interactions["salt_bridge"].append((rec_atom, lig_atom, dist))
+                    elif is_hydrophobic(rec_atom, lig_atom, dist):
+                        interactions["hydrophobic"].append((rec_atom, lig_atom, dist))
+                    elif is_aromatic(rec_atom, lig_atom, dist):
+                        interactions["aromatic"].append((rec_atom, lig_atom, dist))
+                    elif is_cation_pi(rec_atom, lig_atom, dist):
+                        interactions["cation_pi"].append((rec_atom, lig_atom, dist))
+                    elif is_covalent(dist):
+                        interactions["covalent"].append((rec_atom, lig_atom, dist))
+                    elif is_vdw(rec_atom, lig_atom, dist):
+                        interactions["vdw"].append((rec_atom, lig_atom, dist))
+                    else:
+                        interactions["other"].append((rec_atom, lig_atom, dist))
 
     with open(output_path, "w") as f:
         for interaction_type, pairs in interactions.items():
@@ -223,10 +256,15 @@ class PisaPluginGUI(QtWidgets.QWidget):
         self.hydrogen_checkbox.setChecked(True)
         layout.addWidget(self.hydrogen_checkbox, 4, 0, 1, 2)
 
+        # Allow intra-object analysis checkbox
+        self.intra_checkbox = QtWidgets.QCheckBox("Allow intra-object (self) analysis (WARNING: currently broken)")
+        self.intra_checkbox.setChecked(False)
+        layout.addWidget(self.intra_checkbox, 5, 0, 1, 2)
+
         # Run button
         self.run_btn = QtWidgets.QPushButton("Run Analysis")
         self.run_btn.clicked.connect(self.run_analysis_gui)
-        layout.addWidget(self.run_btn, 5, 0, 1, 3)
+        layout.addWidget(self.run_btn, 6, 0, 1, 3)
 
         self.setLayout(layout)
 
@@ -246,8 +284,12 @@ class PisaPluginGUI(QtWidgets.QWidget):
         outdir = self.outdir_edit.text()
         outname = self.outname_edit.text()
         ensure_hydrogens = self.hydrogen_checkbox.isChecked()
+        allow_intra = self.intra_checkbox.isChecked()
         if not rec or not lig:
             QtWidgets.QMessageBox.warning(self, "Error", "Please select both receptor and ligand objects.")
+            return
+        if rec == lig and not allow_intra:
+            QtWidgets.QMessageBox.warning(self, "Error", "Receptor and ligand must be different objects (or enable intra-object analysis).")
             return
         if not os.path.isdir(outdir):
             QtWidgets.QMessageBox.warning(self, "Error", "Output directory does not exist.")

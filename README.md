@@ -9,7 +9,7 @@ This script is useful for post-docking analysis in molecular modeling, enabling 
 ## Features
 
 - **Hydrophobic Interactions:** Between nonpolar atoms, like carbon and sulfur, within 4 Å.
-- **Hydrogen Bonds:** Between donors and acceptors (N, O, F) within 3.5 Å, with an angle check to ensure the donor-hydrogen-acceptor angle is over 120°. *The script automatically detects if the models have hydrogen atoms. If not present, it triggers PyMOL's native* `h_add` *to add H atoms.*
+- **Hydrogen Bonds:** Between donors and acceptors (N, O, F) within 3.5 Å, with an angle check to ensure the donor-hydrogen-acceptor angle is over 120°. *The script has the option to detect if the models have hydrogen atoms. If not present, it triggers PyMOL's native* `h_add` *to add H atoms.*
 - **Salt Bridges:** Between positively and negatively charged atoms within 4 Å.
 - **Van der Waals Interactions:** Within a distance of 1.6-4.0 Å, only if not classified as hydrophobic or hydrogen bonds.
 - **Aromatic and Cation-π Interactions:** Based on specific aromatic or charged atoms within set distances.
