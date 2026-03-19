@@ -2,7 +2,31 @@ import os
 import math
 import csv
 from pymol import cmd, Qt
-from pymol.Qt import QtWidgets
+
+MAX_VISUALIZED_INTERACTIONS = 2000
+
+# --- Qt6/PySide6 compatibility patch ---
+try:
+    from pymol.Qt import QtWidgets
+    # Try to access Qt6 enums to check version
+    _ = QtWidgets.QMessageBox.StandardButton.Ok
+    QT6 = True
+except AttributeError:
+    from pymol.Qt import QtWidgets
+    QT6 = False
+except ImportError:
+    from PyQt6 import QtWidgets
+    QT6 = True
+
+METAL_ELEMENTS = {
+    "LI", "NA", "K", "RB", "CS",
+    "MG", "CA", "CAL", "SR", "BA",
+    "AL", "GA", "IN", "TL",
+    "V", "CR", "MN", "FE", "CO", "NI", "CU", "ZN", "CD", "HG",
+    "MO", "W", "RU", "RH", "PD", "AG", "OS", "IR", "PT", "AU"
+}
+
+METAL_PARTNER_ELEMENTS = {"N", "O", "S", "F", "CL", "BR", "I"}
 
 def calculate_angle(atom1, atom2, atom3):
     """
@@ -69,6 +93,24 @@ def is_hydrophobic(atom1, atom2, dist):
     hydrophobic_atoms = {"C", "S"}
     return dist <= 4.0 and atom1.name[0] in hydrophobic_atoms and atom2.name[0] in hydrophobic_atoms
 
+def atom_element(atom):
+    """Return an uppercase element symbol, with a conservative fallback."""
+    symbol = getattr(atom, "symbol", "")
+    if symbol:
+        return symbol.upper()
+    return atom.name[:2].strip().upper()
+
+def is_metal_contact(atom1, atom2, dist):
+    """Classify metal coordination-like contacts (metal-ligand proximity)."""
+    if dist > 3.0:
+        return False
+    elem1 = atom_element(atom1)
+    elem2 = atom_element(atom2)
+    return (
+        (elem1 in METAL_ELEMENTS and elem2 in METAL_PARTNER_ELEMENTS) or
+        (elem2 in METAL_ELEMENTS and elem1 in METAL_PARTNER_ELEMENTS)
+    )
+
 def is_hbond(atom1, atom2, dist):
     hbond_donors_acceptors = {"N", "O", "F"}
     if dist < 3.5 and atom1.name[0] in hbond_donors_acceptors and atom2.name[0] in hbond_donors_acceptors:
@@ -88,7 +130,7 @@ def is_hbond(atom1, atom2, dist):
 
 def is_salt_bridge(atom1, atom2, dist):
     positive_atoms = {"NZ", "NH1", "NH2", "NE", "ND1", "ND2"}
-    negative_atoms = {"OD1", "OD2", "OE1", "OE2"}
+    negative_atoms = {"OD1", "OD2", "OE1", "OE2", "OE11", "OE12", "OE21", "OE22"}
     return dist <= 4.0 and (
         (atom1.name in positive_atoms and atom2.name in negative_atoms) or
         (atom1.name in negative_atoms and atom2.name in positive_atoms)
@@ -112,6 +154,14 @@ def is_cation_pi(atom1, atom2, dist):
 def is_covalent(dist):
     return dist < 1.6
 
+def atom_distance(atom1, atom2):
+    """Compute Euclidean distance directly from atom coordinates."""
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(atom1.coord, atom2.coord)))
+
+def atom_selection(obj_name, atom):
+    """Build a robust atom selection using PyMOL's internal atom index."""
+    return f"{obj_name} and index {atom.index}"
+
 def run_analysis(rec_file, lig_file, output_path, distance_cutoff=4.0, ensure_hydrogens=True):
     # Optionally check for hydrogens in receptor and ligand, add if missing
     if ensure_hydrogens:
@@ -123,7 +173,7 @@ def run_analysis(rec_file, lig_file, output_path, distance_cutoff=4.0, ensure_hy
             cmd.h_add(lig_file)
 
     interactions = {
-        "hydrophobic": [], "hbond": [], "salt_bridge": [], "covalent": [],
+        "hydrophobic": [], "hbond": [], "metal_contact": [], "salt_bridge": [], "covalent": [],
         "vdw": [], "aromatic": [], "cation_pi": [], "other": []
     }
 
@@ -142,15 +192,14 @@ def run_analysis(rec_file, lig_file, output_path, distance_cutoff=4.0, ensure_hy
             for j, lig_atom in enumerate(lig_atoms):
                 if j <= i:
                     continue  # skip self and duplicate pairs
-                dist = cmd.get_distance(
-                    f"{rec_file}//{rec_atom.chain}/{rec_atom.resi}/{rec_atom.name}",
-                    f"{lig_file}//{lig_atom.chain}/{lig_atom.resi}/{lig_atom.name}"
-                )
+                dist = atom_distance(rec_atom, lig_atom)
                 if dist <= distance_cutoff:
                     if rec_file == lig_file and rec_atom.index == lig_atom.index:
                         continue  # skip self-self
                     if is_hbond(rec_atom, lig_atom, dist):
                         interactions["hbond"].append((rec_atom, lig_atom, dist))
+                    elif is_metal_contact(rec_atom, lig_atom, dist):
+                        interactions["metal_contact"].append((rec_atom, lig_atom, dist))
                     elif is_salt_bridge(rec_atom, lig_atom, dist):
                         interactions["salt_bridge"].append((rec_atom, lig_atom, dist))
                     elif is_hydrophobic(rec_atom, lig_atom, dist):
@@ -168,15 +217,14 @@ def run_analysis(rec_file, lig_file, output_path, distance_cutoff=4.0, ensure_hy
     else:
         for rec_atom in rec_atoms:
             for lig_atom in lig_atoms:
-                dist = cmd.get_distance(
-                    f"{rec_file}//{rec_atom.chain}/{rec_atom.resi}/{rec_atom.name}",
-                    f"{lig_file}//{lig_atom.chain}/{lig_atom.resi}/{lig_atom.name}"
-                )
+                dist = atom_distance(rec_atom, lig_atom)
                 if dist <= distance_cutoff:
                     if rec_file == lig_file and rec_atom.index == lig_atom.index:
                         continue  # skip self-self
                     if is_hbond(rec_atom, lig_atom, dist):
                         interactions["hbond"].append((rec_atom, lig_atom, dist))
+                    elif is_metal_contact(rec_atom, lig_atom, dist):
+                        interactions["metal_contact"].append((rec_atom, lig_atom, dist))
                     elif is_salt_bridge(rec_atom, lig_atom, dist):
                         interactions["salt_bridge"].append((rec_atom, lig_atom, dist))
                     elif is_hydrophobic(rec_atom, lig_atom, dist):
@@ -210,13 +258,15 @@ def run_analysis(rec_file, lig_file, output_path, distance_cutoff=4.0, ensure_hy
                 ])
 
     cmd.show("sticks", "interacting_residues")
-    for interaction_type, color in zip(["hbond", "salt_bridge", "covalent", "hydrophobic"],
-                                       ["cyan", "magenta", "yellow", "orange"]):
+    for interaction_type, color in zip(["hbond", "metal_contact", "salt_bridge", "covalent", "hydrophobic"],
+                                       ["cyan", "green", "magenta", "yellow", "orange"]):
+        # Clear previous measurements from earlier runs to avoid accumulation.
+        cmd.delete(f"{interaction_type}_bonds")
         if interactions[interaction_type]:
-            for atom1, atom2, dist in interactions[interaction_type]:
+            for atom1, atom2, dist in interactions[interaction_type][:MAX_VISUALIZED_INTERACTIONS]:
                 cmd.distance(f"{interaction_type}_bonds",
-                             f"{rec_file}//{atom1.chain}/{atom1.resi}/{atom1.name}",
-                             f"{lig_file}//{atom2.chain}/{atom2.resi}/{atom2.name}")
+                             atom_selection(rec_file, atom1),
+                             atom_selection(lig_file, atom2))
             cmd.show("dashes", f"{interaction_type}_bonds")
             cmd.color(color, f"{interaction_type}_bonds")
     cmd.feedback("pop")
@@ -268,7 +318,7 @@ class PisaPluginGUI(QtWidgets.QWidget):
         layout.addWidget(self.hydrogen_checkbox, 4, 0, 1, 2)
 
         # Allow intra-object analysis checkbox
-        self.intra_checkbox = QtWidgets.QCheckBox("Allow intra-object (self) analysis (WARNING: currently broken)")
+        self.intra_checkbox = QtWidgets.QCheckBox("Allow intra-object (self) analysis")
         self.intra_checkbox.setChecked(False)
         layout.addWidget(self.intra_checkbox, 5, 0, 1, 2)
 
@@ -286,6 +336,9 @@ class PisaPluginGUI(QtWidgets.QWidget):
 
     def browse_dir(self):
         d = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Output Directory", self.outdir_edit.text())
+        # Qt6 returns a tuple (dir, selectedFilter), Qt5 returns str
+        if isinstance(d, tuple):
+            d = d[0]
         if d:
             self.outdir_edit.setText(d)
 
@@ -297,20 +350,35 @@ class PisaPluginGUI(QtWidgets.QWidget):
         ensure_hydrogens = self.hydrogen_checkbox.isChecked()
         allow_intra = self.intra_checkbox.isChecked()
         if not rec or not lig:
-            QtWidgets.QMessageBox.warning(self, "Error", "Please select both receptor and ligand objects.")
+            if QT6:
+                QtWidgets.QMessageBox.warning(self, "Error", "Please select both receptor and ligand objects.", QtWidgets.QMessageBox.StandardButton.Ok)
+            else:
+                QtWidgets.QMessageBox.warning(self, "Error", "Please select both receptor and ligand objects.")
             return
         if rec == lig and not allow_intra:
-            QtWidgets.QMessageBox.warning(self, "Error", "Receptor and ligand must be different objects (or enable intra-object analysis).")
+            if QT6:
+                QtWidgets.QMessageBox.warning(self, "Error", "Receptor and ligand must be different objects (or enable intra-object analysis).", QtWidgets.QMessageBox.StandardButton.Ok)
+            else:
+                QtWidgets.QMessageBox.warning(self, "Error", "Receptor and ligand must be different objects (or enable intra-object analysis).")
             return
         if not os.path.isdir(outdir):
-            QtWidgets.QMessageBox.warning(self, "Error", "Output directory does not exist.")
+            if QT6:
+                QtWidgets.QMessageBox.warning(self, "Error", "Output directory does not exist.", QtWidgets.QMessageBox.StandardButton.Ok)
+            else:
+                QtWidgets.QMessageBox.warning(self, "Error", "Output directory does not exist.")
             return
         output_path = os.path.join(outdir, outname)
         try:
             run_analysis(rec, lig, output_path, ensure_hydrogens=ensure_hydrogens)
-            QtWidgets.QMessageBox.information(self, "Done", f"Results saved to {output_path}")
+            if QT6:
+                QtWidgets.QMessageBox.information(self, "Done", f"Results saved to {output_path}", QtWidgets.QMessageBox.StandardButton.Ok)
+            else:
+                QtWidgets.QMessageBox.information(self, "Done", f"Results saved to {output_path}")
         except Exception as e:
-            QtWidgets.QMessageBox.critical(self, "Error", str(e))
+            if QT6:
+                QtWidgets.QMessageBox.critical(self, "Error", str(e), QtWidgets.QMessageBox.StandardButton.Ok)
+            else:
+                QtWidgets.QMessageBox.critical(self, "Error", str(e))
 
 def show_gui():
     global pisa_gui
