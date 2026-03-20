@@ -1,21 +1,21 @@
 import os
 import math
 import csv
-from pymol import cmd, Qt
+from pymol import cmd, Qt # type: ignore
 
 MAX_VISUALIZED_INTERACTIONS = 2000
 
 # --- Qt6/PySide6 compatibility patch ---
 try:
-    from pymol.Qt import QtWidgets
+    from pymol.Qt import QtWidgets # type: ignore
     # Try to access Qt6 enums to check version
     _ = QtWidgets.QMessageBox.StandardButton.Ok
     QT6 = True
 except AttributeError:
-    from pymol.Qt import QtWidgets
+    from pymol.Qt import QtWidgets # type: ignore
     QT6 = False
 except ImportError:
-    from PyQt6 import QtWidgets
+    from PyQt6 import QtWidgets # type: ignore
     QT6 = True
 
 METAL_ELEMENTS = {
@@ -131,6 +131,15 @@ def is_hbond(atom1, atom2, dist):
 def is_salt_bridge(atom1, atom2, dist):
     positive_atoms = {"NZ", "NH1", "NH2", "NE", "ND1", "ND2"}
     negative_atoms = {"OD1", "OD2", "OE1", "OE2", "OE11", "OE12", "OE21", "OE22"}
+    # Avoid classifying side-chain donor/acceptor pairs within the same residue
+    # (e.g., Asn/Gln amide-carbonyl) as salt bridges.
+    same_residue = (
+        atom1.model == atom2.model and
+        atom1.chain == atom2.chain and
+        atom1.resi == atom2.resi
+    )
+    if same_residue:
+        return False
     return dist <= 4.0 and (
         (atom1.name in positive_atoms and atom2.name in negative_atoms) or
         (atom1.name in negative_atoms and atom2.name in positive_atoms)
@@ -386,5 +395,5 @@ def show_gui():
     pisa_gui.show()
 
 def __init_plugin__(app=None):
-    from pymol.plugins import addmenuitemqt
+    from pymol.plugins import addmenuitemqt # type: ignore
     addmenuitemqt("PISA Interaction Analysis", show_gui)
